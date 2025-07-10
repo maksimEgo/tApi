@@ -3,6 +3,7 @@
 namespace TelegramBot\Api;
 
 use TelegramBot\Api\Http\CurlHttpClient;
+use TelegramBot\Api\Http\PersistentCurlHttpClient;
 use TelegramBot\Api\Types\UserChatBoosts;
 use TelegramBot\Api\Types\ReplyParameters;
 use TelegramBot\Api\Http\HttpClientInterface;
@@ -172,18 +173,13 @@ class BotApi
      */
     private $fileEndpoint;
 
-    /**
-     * @param string $token Telegram Bot API token
-     * @param HttpClientInterface|null $httpClient
-     * @param string|null $endpoint
-     */
-    public function __construct($token, ?HttpClientInterface $httpClient = null, $endpoint = null)
+    public function __construct(string $token, ?HttpClientInterface $httpClient = null, string $endpoint = null)
     {
         $this->token = $token;
         $this->endpoint = ($endpoint ?: self::URL_PREFIX) . $token;
         $this->fileEndpoint = $endpoint ? null : (self::FILE_URL_PREFIX . $token);
 
-        $this->httpClient = $httpClient ?: new CurlHttpClient();
+        $this->httpClient = $httpClient ?: new PersistentCurlHttpClient();
     }
 
     /**
@@ -244,7 +240,7 @@ class BotApi
      * @throws HttpException
      * @throws InvalidJsonException
      */
-    public function call($method, array $data = null, $timeout = null)
+    public function call($method, ?array $data = null, $timeout = null)
     {
         if ($timeout !== null) {
             @trigger_error(sprintf('Passing $timeout parameter in %s::%s is deprecated. Use http client options', __CLASS__, __METHOD__), \E_USER_DEPRECATED);

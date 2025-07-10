@@ -1,6 +1,6 @@
 {
-    "name": "telegram-bot/api",
-    "description": "PHP Wrapper for Telegram Bot API",
+    "name": "maksimego/tapi",
+    "description": "Native PHP Wrapper for Telegram BOT API (forked)",
     "keywords": [
         "php",
         "telegram",
