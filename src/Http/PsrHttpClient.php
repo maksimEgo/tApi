@@ -52,35 +52,52 @@ class PsrHttpClient extends AbstractHttpClient
         $request = $this->requestFactory->createRequest($method, $url);
         if ($method === 'POST') {
             $multipart = false;
+            $openedResources = [];
 
             /** @var array $data */
             foreach ($data as &$value) {
                 if ($value instanceof \CURLFile) {
                     $value = fopen($value->getFilename(), 'r');
+                    $openedResources[] = $value;
                     $multipart = true;
                 }
             }
             unset($value);
 
-            if ($multipart) {
-                $builder = new MultipartStreamBuilder($this->streamFactory);
-                foreach ($data as $name => $value) {
-                    $builder->addResource($name, $value);
+            try {
+                if ($multipart) {
+                    $builder = new MultipartStreamBuilder($this->streamFactory);
+                    foreach ($data as $name => $value) {
+                        $builder->addResource($name, $value);
+                    }
+                    $stream = $builder->build();
+                    $request = $request->withHeader('Content-Type', "multipart/form-data; boundary={$builder->getBoundary()}");
+                } else {
+                    $stream = $this->streamFactory->createStream(http_build_query($data));
+                    $request = $request->withHeader('Content-Type', 'application/x-www-form-urlencoded');
                 }
-                $stream = $builder->build();
-                $request = $request->withHeader('Content-Type', "multipart/form-data; boundary={$builder->getBoundary()}");
-            } else {
-                $stream = $this->streamFactory->createStream(http_build_query($data));
-                $request = $request->withHeader('Content-Type', 'application/x-www-form-urlencoded');
-            }
 
-            $request = $request->withBody($stream);
+                $request = $request->withBody($stream);
+            } catch (\Throwable $e) {
+                foreach ($openedResources as $resource) {
+                    if (\is_resource($resource)) {
+                        fclose($resource);
+                    }
+                }
+                throw $e;
+            }
         }
 
         try {
             $response = $this->http->sendRequest($request);
         } catch (ClientExceptionInterface $exception) {
             throw new HttpException($exception->getMessage(), $exception->getCode(), $exception);
+        } finally {
+            foreach ($openedResources ?? [] as $resource) {
+                if (\is_resource($resource)) {
+                    fclose($resource);
+                }
+            }
         }
 
         $content = $response->getBody()->getContents();
